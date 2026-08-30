@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>Taverna Compass</title>
+<meta name="description" content="A restaurant-location guide for Athens, Santorini, and Paros, mapped against your hotels on each island.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%A7%AD%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;0,700;1,500&family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ground:#EFF3F4; --surface:#FFFFFF; --surface-2:#E4ECEE; --ink:#14213A; --muted:#57707A; --line:#D3DEE1;
+    --aegean:#1E6E93; --on-aegean:#FFFFFF;
+    --sun:#E2A33B; --on-sun:#14213A;
+    --flag:#9C3B27; --on-flag:#FFFFFF;
+    --shadow: 0 1px 2px rgba(20,33,58,.06), 0 8px 24px -12px rgba(20,33,58,.18);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ground:#0E1B23; --surface:#152530; --surface-2:#1C303B; --ink:#EAF1F1; --muted:#93AAB1; --line:#28414B;
+      --aegean:#6FC3E8; --on-aegean:#0E1B23;
+      --sun:#F0BB5C; --on-sun:#1B1204;
+      --flag:#E38468; --on-flag:#2B0E06;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0E1B23; --surface:#152530; --surface-2:#1C303B; --ink:#EAF1F1; --muted:#93AAB1; --line:#28414B;
+    --aegean:#6FC3E8; --on-aegean:#0E1B23;
+    --sun:#F0BB5C; --on-sun:#1B1204;
+    --flag:#E38468; --on-flag:#2B0E06;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.5);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--ground); color:var(--ink);
+    font-family:'Public Sans', ui-sans-serif, system-ui, sans-serif;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.display{ font-family:'Fraunces', Georgia, serif; text-wrap:balance; }
+  .mono{ font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, monospace; }
+  a{ color:var(--aegean); }
+  a:focus-visible, button:focus-visible, [tabindex]:focus-visible{
+    outline:2px solid var(--aegean); outline-offset:2px; border-radius:2px;
+  }
+
+  .wrap{ max-width:1180px; margin:0 auto; padding:28px 20px 64px; }
+
+  header.masthead{
+    display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:12px;
+    padding-bottom:20px; margin-bottom:22px; border-bottom:1px solid var(--line);
+  }
+  .eyebrow{
+    font-size:11.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:600;
+  }
+  header.masthead h1{ font-size:clamp(28px,4vw,40px); font-weight:700; margin:2px 0 0; }
+  header.masthead p{ margin:6px 0 0; color:var(--muted); font-size:14.5px; max-width:46ch; }
+
+  /* Ticket-style island tabs */
+  .tabs{ display:flex; gap:10px; margin-bottom:22px; flex-wrap:wrap; }
+  .tab{
+    position:relative; cursor:pointer; user-select:none;
+    background:var(--surface); border:1px solid var(--line); border-radius:10px 10px 4px 4px;
+    padding:12px 18px 13px; box-shadow:var(--shadow);
+    display:flex; flex-direction:column; gap:3px; min-width:150px;
+    transition:transform .15s ease, border-color .15s ease;
+  }
+  .tab:hover{ transform:translateY(-1px); }
+  .tab .code{ font-size:11px; color:var(--muted); letter-spacing:.1em; }
+  .tab .name{ font-family:'Fraunces',serif; font-weight:600; font-size:17px; }
+  .tab .count{ font-size:12px; color:var(--muted); }
+  .tab::after{
+    content:""; position:absolute; left:14px; right:14px; bottom:-1px; height:3px; border-radius:2px;
+    background:transparent;
+  }
+  .tab[aria-selected="true"]{ border-color:var(--aegean); }
+  .tab[aria-selected="true"]::after{ background:var(--aegean); }
+  .tab .perf{
+    position:absolute; left:0; right:0; bottom:-7px; height:7px;
+    background-image: radial-gradient(circle at 6px 0, var(--ground) 3px, transparent 3.5px);
+    background-size:12px 7px; background-repeat:repeat-x;
+    display:none;
+  }
+  .tab[aria-selected="true"] .perf{ display:block; }
+
+  .panel{ display:none; }
+  .panel.active{ display:block; }
+
+  .hotel-line{
+    display:flex; align-items:center; gap:10px; margin-bottom:16px; padding:10px 14px;
+    background:var(--surface); border:1px solid var(--line); border-radius:10px; box-shadow:var(--shadow);
+  }
+  .hotel-line svg{ flex:none; }
+  .hotel-line .t1{ font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); font-weight:600; }
+  .hotel-line .t2{ font-size:14.5px; font-weight:600; }
+  .hotel-line .t3{ font-size:12.5px; color:var(--muted); }
+
+  .grid{ display:grid; grid-template-columns:minmax(300px,460px) 1fr; gap:22px; align-items:start; }
+  @media (max-width:820px){ .grid{ grid-template-columns:1fr; } }
+
+  .map-card{
+    background:var(--surface); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow);
+    padding:14px; position:sticky; top:16px;
+  }
+  @media (max-width:820px){ .map-card{ position:static; } }
+  .map-card svg{ width:100%; height:auto; display:block; }
+  .map-caption{ font-size:12px; color:var(--muted); margin-top:10px; padding-top:10px; border-top:1px dashed var(--line); }
+  .map-caption .k{ display:inline-flex; align-items:center; gap:5px; margin-right:14px; }
+  .map-caption .dot{ width:9px; height:9px; border-radius:50%; background:var(--aegean); display:inline-block; }
+  .map-caption .dot.dash{ background:none; border:1.6px dashed var(--aegean); }
+  .map-caption .star{ color:var(--sun); font-size:13px; }
+
+  .list{ display:flex; flex-direction:column; gap:10px; }
+  .card{
+    background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow);
+    padding:13px 15px; display:grid; grid-template-columns:34px 1fr auto; gap:12px; align-items:start;
+    transition:border-color .15s ease, transform .15s ease;
+  }
+  .card:hover, .card.hover{ border-color:var(--aegean); transform:translateX(2px); }
+  .badge{
+    width:30px; height:30px; border-radius:50%; background:var(--aegean); color:var(--on-aegean);
+    display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace; font-weight:600; font-size:13px;
+  }
+  .card .body h3{ font-size:16.5px; margin:0 0 2px; font-weight:600; }
+  .card .meta{ font-size:12.5px; color:var(--muted); margin-bottom:5px; }
+  .card .meta .approx{ display:inline-block; margin-left:6px; border:1.4px dashed var(--muted); border-radius:6px; padding:0 5px; font-size:10.5px; letter-spacing:.03em; }
+  .card p.desc{ margin:0; font-size:13.5px; color:var(--ink); opacity:.88; }
+  .card .side{ text-align:right; display:flex; flex-direction:column; align-items:flex-end; gap:7px; }
+  @media (max-width:480px){
+    .card{ grid-template-columns:30px 1fr; }
+    .card .side{ grid-column:1/-1; flex-direction:row; align-items:center; justify-content:space-between; margin-top:6px; padding-top:9px; border-top:1px dashed var(--line); }
+  }
+  .card .dist{ font-family:'JetBrains Mono',monospace; font-weight:600; font-size:14px; white-space:nowrap; }
+  .card .dist small{ font-weight:400; color:var(--muted); font-size:10.5px; }
+  .linkrow{ display:flex; gap:6px; }
+  .linkbtn{
+    font-size:11px; font-weight:600; text-decoration:none; padding:5px 9px; border-radius:7px; white-space:nowrap;
+    border:1px solid var(--line); color:var(--ink);
+  }
+  .linkbtn.primary{ background:var(--sun); color:var(--on-sun); border-color:transparent; }
+  .linkbtn:hover{ filter:brightness(0.97); }
+
+  .special{
+    border:1.6px dashed var(--flag); background:var(--surface); border-radius:12px; padding:14px 16px; margin-top:14px;
+    box-shadow:var(--shadow);
+  }
+  .special .flagtag{
+    display:inline-block; background:var(--flag); color:var(--on-flag); font-family:'JetBrains Mono',monospace;
+    font-size:10.5px; font-weight:600; letter-spacing:.08em; padding:3px 8px; border-radius:6px; margin-bottom:8px;
+  }
+  .special h3{ margin:0 0 4px; font-size:16.5px; }
+  .special p{ margin:0 0 8px; font-size:13.5px; color:var(--ink); opacity:.9; }
+  .special .dist{ font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--muted); margin-bottom:8px; }
+
+  .also-note{ font-size:12px; color:var(--muted); margin:2px 0 14px; padding-left:2px; }
+
+  details.about{
+    margin-top:32px; border-top:1px solid var(--line); padding-top:16px;
+  }
+  details.about summary{ cursor:pointer; font-weight:600; font-size:14px; }
+  details.about .content{ margin-top:12px; font-size:13px; color:var(--muted); display:flex; flex-direction:column; gap:8px; max-width:70ch; }
+  details.about .content b{ color:var(--ink); }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition:none !important; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div>
+      <div class="eyebrow">Athens · Santorini · Paros</div>
+      <h1>Taverna Compass</h1>
+      <p>Every restaurant on your list, plotted against where you're actually sleeping — closest first, with a tap-to-navigate link for each.</p>
+    </div>
+  </header>
+
+  <div class="tabs" role="tablist" aria-label="Choose an island">
+    <div class="tab" role="tab" data-island="athens" aria-selected="true" tabindex="0">
+      <span class="code mono">ATH · MAINLAND</span>
+      <span class="name">Athens</span>
+      <span class="count">5 places</span>
+      <span class="perf"></span>
+    </div>
+    <div class="tab" role="tab" data-island="santorini" aria-selected="false" tabindex="0">
+      <span class="code mono">JTR · CYCLADES</span>
+      <span class="name">Santorini</span>
+      <span class="count">7 places</span>
+      <span class="perf"></span>
+    </div>
+    <div class="tab" role="tab" data-island="paros" aria-selected="false" tabindex="0">
+      <span class="code mono">PAS · CYCLADES</span>
+      <span class="name">Paros</span>
+      <span class="count">9 places + 1 side trip</span>
+      <span class="perf"></span>
+    </div>
+  </div>
+
+  <!-- ATHENS -->
+  <section class="panel active" id="panel-athens">
+    <div class="hotel-line">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 1l2.4 5.9 6.3.5-4.8 4.1 1.5 6.2L10 14.7l-5.4 3 1.5-6.2L1.3 7.4l6.3-.5L10 1z" fill="var(--sun)" stroke="var(--ink)" stroke-width=".6"/></svg>
+      <div>
+        <div class="t1">Your hotel</div>
+        <div class="t2">Mitropoleos 15, 105 57 Athens</div>
+        <div class="t3">Syntagma / Plaka — address matches the Electra Metropolis Athens</div>
+      </div>
+    </div>
+    <div class="also-note" id="athens-crossref"></div>
+    <div class="grid">
+      <div class="map-card"><svg id="map-athens" viewBox="0 0 520 520"></svg>
+        <div class="map-caption">
+          <span class="k"><span class="star">★</span> your hotel</span>
+          <span class="k"><span class="dot"></span> confirmed pin</span>
+          <span class="k"><span class="dot dash"></span> approximate pin</span>
+          <br>Schematic diagram, not a survey map — distances are straight-line air distance. Use “Directions” to navigate.
+          <span id="inset-note-athens"></span>
+        </div>
+      </div>
+      <div class="list" id="list-athens"></div>
+    </div>
+  </section>
+
+  <!-- SANTORINI -->
+  <section class="panel" id="panel-santorini">
+    <div class="hotel-line">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 1l2.4 5.9 6.3.5-4.8 4.1 1.5 6.2L10 14.7l-5.4 3 1.5-6.2L1.3 7.4l6.3-.5L10 1z" fill="var(--sun)" stroke="var(--ink)" stroke-width=".6"/></svg>
+      <div>
+        <div class="t1">Your hotel</div>
+        <div class="t2">25is Martiou, 847 00 Thira</div>
+        <div class="t3">Central Fira — no house number given, so the pin marks the street's midpoint</div>
+      </div>
+    </div>
+    <div class="grid">
+      <div class="map-card"><svg id="map-santorini" viewBox="0 0 520 520"></svg>
+        <div class="map-caption">
+          <span class="k"><span class="star">★</span> your hotel</span>
+          <span class="k"><span class="dot"></span> confirmed pin</span>
+          <span class="k"><span class="dot dash"></span> approximate pin</span>
+          <br>Restaurants span the caldera rim from Imerovigli to Kamari — this diagram is not to exact scale.
+          <span id="inset-note-santorini"></span>
+        </div>
+      </div>
+      <div class="list" id="list-santorini"></div>
+    </div>
+  </section>
+
+  <!-- PAROS -->
+  <section class="panel" id="panel-paros">
+    <div class="hotel-line">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 1l2.4 5.9 6.3.5-4.8 4.1 1.5 6.2L10 14.7l-5.4 3 1.5-6.2L1.3 7.4l6.3-.5L10 1z" fill="var(--sun)" stroke="var(--ink)" stroke-width=".6"/></svg>
+      <div>
+        <div class="t1">Your hotel</div>
+        <div class="t2">Naoussa, 844 01 Paros</div>
+        <div class="t3">Village-level address — pin marks the centre of Naoussa</div>
+      </div>
+    </div>
+    <div class="grid">
+      <div class="map-card"><svg id="map-paros" viewBox="0 0 520 520"></svg>
+        <div class="map-caption">
+          <span class="k"><span class="star">★</span> your hotel</span>
+          <span class="k"><span class="dot"></span> confirmed pin</span>
+          <span class="k"><span class="dot dash"></span> approximate pin</span>
+          <br>Two clusters: Naoussa (by your hotel) and Parikia/Piso Livadi, ~20–25 min by car across the island.
+          <span id="inset-note-paros"></span>
+        </div>
+      </div>
+      <div class="list" id="list-paros"></div>
+    </div>
+    <div class="special" id="special-paros"></div>
+  </section>
+
+  <details class="about">
+    <summary>About this guide &amp; data caveats</summary>
+    <div class="content">
+      <div><b>How locations were found.</b> None of the sites on your list published exact coordinates, so each pin comes from cross-referencing the restaurant's own site with map/review aggregators. Pins marked <i>approximate</i> are accurate to roughly a village block, not a doorstep — always confirm with the "Directions" link before setting off.</div>
+      <div><b>Koutouki (Paros)</b> — the URL you had (koutouki.ca) is actually an unrelated Greek restaurant in Edmonton, Canada. The pin shown is a same-named taverna in Parikia's old town, which is the likely intended match, but it's unconfirmed — worth double-checking the name in person or with your source.</div>
+      <div><b>Edem (Athens list)</b> — this one sits in Paleo Faliro on the Athenian Riviera, about 7&nbsp;km / a 15–20&nbsp;min taxi south of Mitropoleos 15, not in the historic centre. It's shown as an edge arrow on the Athens map rather than distorting the whole diagram.</div>
+      <div><b>Koutsou &amp; Co (Athens list)</b> — the Facebook page you had is the seasonal Antiparos branch, not the year-round Athens restaurant. Since you're based in Paros, it's filed under the Paros tab as a side trip instead.</div>
+      <div>Built from your list on 30 Aug 2026. Website links go to the pages you sent; "Directions" opens Google Maps.</div>
+    </div>
+  </details>
+
+</div>
+
+<script>
+(function(){
+  const KM_LAT = 110.574;
+  function kmLon(lat){ return 111.320*Math.cos(lat*Math.PI/180); }
+  function project(lat, lon, refLat, refLon){
+    const east = (lon-refLon)*kmLon(refLat);
+    const north = (lat-refLat)*KM_LAT;
+    return { east, north, dist: Math.hypot(east, north) };
+  }
+  function compass(bearingDeg){
+    const dirs = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
+    let b = ((bearingDeg%360)+360)%360;
+    return dirs[Math.round(b/22.5)%16];
+  }
+  function fmtDist(km){
+    if(km < 1) return { n:Math.round(km*1000), u:"m" };
+    return { n: km.toFixed(km<10?1:0), u:"km" };
+  }
+  function niceScale(maxKm){
+    const options=[0.1,0.2,0.25,0.5,1,2,2.5,5,10,20];
+    let target = maxKm*0.32;
+    let best = options[0];
+    for(const o of options){ if(o<=target) best=o; }
+    return best;
+  }
+
+  const ISLANDS = {
+    athens: {
+      hotel:{ lat:37.9751077, lon:23.7321517 },
+      places:[
+        { name:"Aspro Alogo", village:"Plaka / Monastiraki", desc:"Small family-run taverna near Plaka, known for souvlaki and home-style plates.", lat:37.974837, lon:23.73128, conf:"high", url:"https://www.facebook.com/pages/Aspro%20Alogo/654240607925561/" },
+        { name:"GH Attikos", village:"Acropolis / Garibaldi St", desc:"50-year-old traditional taverna near the Herodeon with Acropolis views.", lat:37.96918, lon:23.72369, conf:"high", url:"https://ghattikos.gr/en/" },
+        { name:"Mani Mani", village:"Koukaki", desc:"Modern Maniot/Laconian regional cooking in a neoclassical house near the Acropolis Museum.", lat:37.966693, lon:23.728368, conf:"high", url:"https://www.manimani.com.gr/en/" },
+        { name:"Point A (Acropolis Point)", village:"Makrygianni — rooftop of the Herodion Hotel", desc:"Rooftop bar-restaurant with close-up Parthenon views.", lat:37.96844, lon:23.72714, conf:"high", url:"https://www.acropolispoint.com/" },
+        { name:"Edem Restaurant", village:"Paleo Faliro — Athenian Riviera", desc:"Seaside all-day café-restaurant on the coast, popular with beachgoers.", lat:37.918048, lon:23.700509, conf:"high", url:"https://www.edemrestaurant.gr/en/contact-us/", offMap:true }
+      ]
+    },
+    santorini: {
+      hotel:{ lat:36.420976, lon:25.431967 },
+      places:[
+        { name:"Pelican Kipos", village:"Fira town", desc:"Garden cafe & wine restaurant over a 400-year-old cellar, 480+ wines.", lat:36.418661705410514, lon:25.432600906551844, conf:"medium", url:"https://www.pelicankipos.com/" },
+        { name:"Idol Restaurant Bar", village:"Fira, near the cable car", desc:"Caldera-view bar-restaurant serving Mediterranean and seafood dishes.", lat:36.418983, lon:25.431124, conf:"medium", url:"https://www.idolsantorini.gr/" },
+        { name:"Mylos", village:"Firostefani", desc:"Clifftop restaurant in a historic windmill; Mediterranean-Asian fusion, champagne bar.", lat:36.42564, lon:25.42865, conf:"medium", url:"https://mylossantorini.com/" },
+        { name:"Varoulko Santorini", village:"Imerovigli — inside the Grace Hotel", desc:"Fine-dining Greek seafood by chef Lefteris Lazarou, infinity-pool caldera views.", lat:36.432957, lon:25.421019, conf:"high", url:"https://www.varoulko.gr/menu/" },
+        { name:"Aroma Avlis", village:"Exo Gonia — Artemis Karamolegos Winery", desc:"Restaurant in a winery courtyard, estate wines paired with a Greek menu.", lat:36.3883511, lon:25.4636568, conf:"high", url:"https://www.artemiskaramolegos-winery.com/en/aroma-avlis/" },
+        { name:"Fistikies", village:"Kamari", desc:"Shaded garden restaurant near Kamari beach, fresh seasonal Greek fare.", lat:36.3734767, lon:25.4808437, conf:"high", url:"https://fistikies.com/" },
+        { name:"Krinaki", village:"Finikia, near Oia", desc:"Family-run taverna in a restored house with a quiet terrace.", lat:36.46317, lon:25.393478, conf:"high", url:"https://krinaki.gr/en/" }
+      ]
+    },
+    paros: {
+      hotel:{ lat:37.1245, lon:25.2363 },
+      places:[
+        { name:"Barbarossa", village:"Naoussa — old harbour (Limanaki)", desc:"Iconic harbourside seafood & cocktails since the 1960s, famous sunset view.", lat:37.1252, lon:25.2375, conf:"high", url:"https://www.barbarossarestaurant.com/" },
+        { name:"Kargas", village:"Naoussa — down the Volto alley", desc:"Casual grill/street-food spot in a Naoussa alley, running since 1993.", lat:37.124561, lon:25.238093, conf:"medium", url:"https://www.facebook.com/KargasParos/" },
+        { name:"Daverona", village:"Naoussa", desc:"Elegant upstairs Mediterranean restaurant, husband-and-wife run.", lat:37.123207, lon:25.238827, conf:"high", url:"https://www.facebook.com/daverona.paros/" },
+        { name:"Glafkos", village:"Naoussa — Agios Dimitrios beach", desc:"Seaside taverna right on the beach; fresh seafood, garden setting.", lat:37.124588, lon:25.238838, conf:"high", url:"https://www.facebook.com/GlafkosRestaurant/?locale=en_GB" },
+        { name:"Sí Paros", village:"Xifara, near Naoussa", desc:"Upscale seaside dining with sunset views and ingredient-led cooking.", lat:37.1264125, lon:25.2666295, conf:"high", url:"https://siparos.gr/" },
+        { name:"Café Symposium", village:"Parikia old town", desc:"Long-running all-day café/creperie under a big bougainvillea.", lat:37.08469, lon:25.150211, conf:"high", url:"https://www.cafesymposium.gr/" },
+        { name:"Mira", village:"Parikia seafront", desc:"Seafront taverna serving seafood and pasta since 2000.", lat:37.084435, lon:25.146704, conf:"medium", url:"http://www.mira.gr/" },
+        { name:"Koutouki", village:"Parikia old town (approximate)", desc:"Small, unpretentious old-town taverna — confirm the name in person; see note below.", lat:37.0846, lon:25.1502, conf:"low", url:"https://www.koutouki.ca/" },
+        { name:"Ouzeri Halaris", village:"Piso Livadi", desc:"Waterfront seafood ouzeri on the Piso Livadi harbour.", lat:37.035175, lon:25.259972, conf:"high", url:"https://ouzerihalaris.restaurants-us.com/" }
+      ],
+      special:{
+        name:"Koutsou & Co", place:"Chora, Antiparos — pedestrian promenade",
+        desc:"The link on your list is the seasonal, summer-only Antiparos branch of an Athens restaurant — not a Paros or Athens spot. Reachable by a short passenger ferry from Pounta (near Parikia), about a 10-minute crossing.",
+        lat:37.0405, lon:25.0575, url:"https://www.facebook.com/koutsouandcoantiparos/"
+      }
+    }
+  };
+
+  function mapsUrl(lat,lon){ return "https://www.google.com/maps/search/?api=1&query="+lat+","+lon; }
+
+  function buildMap(svgId, hotel, places){
+    const svg = document.getElementById(svgId);
+    const S = 520, PAD = 46;
+    const inRange = places.filter(p=>!p.offMap);
+    const offRange = places.filter(p=>p.offMap);
+
+    const pts = inRange.map(p=>Object.assign({}, p, project(p.lat,p.lon,hotel.lat,hotel.lon)));
+    let minX=0,maxX=0,minY=0,maxY=0;
+    pts.forEach(p=>{ minX=Math.min(minX,p.east); maxX=Math.max(maxX,p.east); minY=Math.min(minY,p.north); maxY=Math.max(maxY,p.north); });
+    const spanX = Math.max(maxX-minX, 0.5), spanY = Math.max(maxY-minY, 0.5);
+    const padFrac = 0.28;
+    const bw = spanX*(1+padFrac*2), bh = spanY*(1+padFrac*2);
+    const cxKm = (minX+maxX)/2, cyKm = (minY+maxY)/2;
+    const drawSize = S - PAD*2;
+    const scale = Math.min(drawSize/bw, drawSize/bh);
+    const cx = S/2, cy = S/2;
+
+    function toScreen(east,north){ return { x: cx + (east-cxKm)*scale, y: cy - (north-cyKm)*scale }; }
+
+    let svgParts = [];
+    // background
+    svgParts.push(`<rect x="0" y="0" width="${S}" height="${S}" rx="10" fill="var(--surface-2)"/>`);
+    // graticule dots
+    for(let gx=20; gx<S; gx+=28){ for(let gy=20; gy<S; gy+=28){ svgParts.push(`<circle cx="${gx}" cy="${gy}" r="1" fill="var(--line)"/>`); } }
+
+    // compass rose
+    svgParts.push(`<g transform="translate(${S-40},40)">
+      <circle r="18" fill="var(--surface)" stroke="var(--line)"/>
+      <path d="M0,-12 L4,0 L0,12 L-4,0 Z" fill="var(--aegean)"/>
+      <text y="-22" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="var(--muted)" font-weight="600">N</text>
+    </g>`);
+
+    // scale bar
+    const scaleKm = niceScale(Math.max(bw,bh)/2);
+    const barPx = scaleKm*scale;
+    const bx = 26, by = S-26;
+    svgParts.push(`<g font-family="JetBrains Mono, monospace" font-size="10" fill="var(--muted)">
+      <line x1="${bx}" y1="${by}" x2="${bx+barPx}" y2="${by}" stroke="var(--ink)" stroke-width="1.6"/>
+      <line x1="${bx}" y1="${by-4}" x2="${bx}" y2="${by+4}" stroke="var(--ink)" stroke-width="1.6"/>
+      <line x1="${bx+barPx}" y1="${by-4}" x2="${bx+barPx}" y2="${by+4}" stroke="var(--ink)" stroke-width="1.6"/>
+      <text x="${bx}" y="${by-8}">${scaleKm>=1?scaleKm+' km':Math.round(scaleKm*1000)+' m'}</text>
+    </g>`);
+
+    // hotel star
+    const h = toScreen(0,0);
+    svgParts.push(`<g transform="translate(${h.x},${h.y})">
+      <circle r="13" fill="var(--sun)" opacity=".18"/>
+      <path d="M0,-9 L2.6,-3 L9,-2.6 L3.8,1.6 L5.5,8 L0,4.4 L-5.5,8 L-3.8,1.6 L-9,-2.6 L-2.6,-3 Z" fill="var(--sun)" stroke="var(--ink)" stroke-width=".5"/>
+    </g>`);
+
+    // numbered pins — split into "far" (drawn on the main canvas) and "near"
+    // (crowded around the hotel at this scale, drawn instead in a zoomed inset)
+    const sorted = pts.slice().sort((a,b)=>a.dist-b.dist);
+    const NEAR_PX = 30, VERY_NEAR_PX = 15;
+    let nearCount = 0;
+    while(nearCount < sorted.length && sorted[nearCount].dist*scale < NEAR_PX) nearCount++;
+    const useInset = nearCount >= 2 || (nearCount >= 1 && sorted[0].dist*scale < VERY_NEAR_PX);
+    const nearPts = useInset ? sorted.slice(0, nearCount) : [];
+    const farPts = useInset ? sorted.slice(nearCount) : sorted;
+
+    function drawPin(p, i, x, y, r, fontSize){
+      const isHigh = p.conf === "high";
+      const circle = isHigh
+        ? `<circle cx="${x}" cy="${y}" r="${r}" fill="var(--aegean)" stroke="var(--surface)" stroke-width="2"/>`
+        : `<circle cx="${x}" cy="${y}" r="${r}" fill="var(--surface)" stroke="var(--aegean)" stroke-width="2" stroke-dasharray="3,2.4"/>`;
+      const numFill = isHigh ? "var(--on-aegean)" : "var(--aegean)";
+      return `<g class="pin" data-id="${p.id}" style="cursor:pointer">
+        ${circle}
+        <text x="${x}" y="${y+fontSize*0.36}" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="${fontSize}" font-weight="600" fill="${numFill}">${i+1}</text>
+        <title>${p.name} — ${p.village}</title>
+      </g>`;
+    }
+
+    const farScreen = farPts.map(p=>Object.assign({}, p, toScreen(p.east,p.north)));
+
+    // zoomed inset for the crowded near-hotel cluster — pick whichever free
+    // corner (top-left or bottom-right; the other two hold the compass/scale
+    // bar) has the fewest far-away pins under it, so nothing gets hidden.
+    let insetSvg = "";
+    if(useInset){
+      const INS = 176, INSPAD = 22, MARGIN = 14;
+      function conflicts(x0,y0){
+        return farScreen.filter(p=>p.x>x0-12 && p.x<x0+INS+12 && p.y>y0-12 && p.y<y0+INS+12).length;
+      }
+      const cornerBR = { x0:S-MARGIN-INS, y0:S-MARGIN-INS };
+      const cornerTL = { x0:MARGIN, y0:MARGIN };
+      const scoreBR = conflicts(cornerBR.x0,cornerBR.y0), scoreTL = conflicts(cornerTL.x0,cornerTL.y0);
+      const corner = scoreTL < scoreBR ? cornerTL : cornerBR;
+      const ix0 = corner.x0, iy0 = corner.y0;
+      let nminX=0,nmaxX=0,nminY=0,nmaxY=0;
+      nearPts.forEach(p=>{ nminX=Math.min(nminX,p.east); nmaxX=Math.max(nmaxX,p.east); nminY=Math.min(nminY,p.north); nmaxY=Math.max(nmaxY,p.north); });
+      const nSpanX = Math.max(nmaxX-nminX,0.05), nSpanY = Math.max(nmaxY-nminY,0.05);
+      const nPad = 0.55;
+      const nbw = nSpanX*(1+nPad*2), nbh = nSpanY*(1+nPad*2);
+      const nDraw = INS - INSPAD*2;
+      const nScale = Math.min(nDraw/nbw, nDraw/nbh);
+      const ncxKm=(nminX+nmaxX)/2, ncyKm=(nminY+nmaxY)/2;
+      const icx = ix0+INS/2, icy = iy0+INS/2;
+      function toInset(east,north){ return { x: icx+(east-ncxKm)*nScale, y: icy-(north-ncyKm)*nScale }; }
+
+      // indicator on the main map: dashed circle around the hotel + leader line to the inset's nearest corner
+      const indicatorR = Math.max(NEAR_PX, sorted[nearCount-1].dist*scale)+8;
+      const nearCornerX = ix0 + (icx <= h.x ? INS : 0), nearCornerY = iy0 + (icy <= h.y ? INS : 0);
+      const leadAngle = Math.atan2(nearCornerY-h.y, nearCornerX-h.x);
+      svgParts.push(`<circle cx="${h.x}" cy="${h.y}" r="${indicatorR}" fill="none" stroke="var(--flag)" stroke-width="1.2" stroke-dasharray="3,3" opacity=".8"/>`);
+      svgParts.push(`<line x1="${h.x+Math.cos(leadAngle)*indicatorR}" y1="${h.y+Math.sin(leadAngle)*indicatorR}" x2="${nearCornerX}" y2="${nearCornerY}" stroke="var(--flag)" stroke-width="1.2" stroke-dasharray="3,3" opacity=".6"/>`);
+
+      let insetParts = [];
+      insetParts.push(`<rect x="${ix0}" y="${iy0}" width="${INS}" height="${INS}" rx="8" fill="var(--surface)" stroke="var(--flag)" stroke-width="1.4"/>`);
+      insetParts.push(`<text x="${ix0+9}" y="${iy0+16}" font-family="JetBrains Mono, monospace" font-size="9" font-weight="600" letter-spacing=".05em" fill="var(--flag)">DETAIL · ZOOMED</text>`);
+      const ih = toInset(0,0);
+      insetParts.push(`<g transform="translate(${ih.x},${ih.y})">
+        <circle r="10" fill="var(--sun)" opacity=".2"/>
+        <path d="M0,-7 L2,-2.3 L7,-2 L3,1.2 L4.3,6.2 L0,3.4 L-4.3,6.2 L-3,1.2 L-7,-2 L-2,-2.3 Z" fill="var(--sun)" stroke="var(--ink)" stroke-width=".4"/>
+      </g>`);
+      nearPts.forEach((p,i)=>{
+        const s = toInset(p.east,p.north);
+        insetParts.push(drawPin(p, i, s.x, s.y, 9.5, 9.5));
+      });
+      const nScaleKm = niceScale(Math.max(nbw,nbh)/2.4);
+      const nBarPx = nScaleKm*nScale;
+      const nbx = ix0+12, nby = iy0+INS-12;
+      insetParts.push(`<g font-family="JetBrains Mono, monospace" font-size="8.5" fill="var(--muted)">
+        <line x1="${nbx}" y1="${nby}" x2="${nbx+nBarPx}" y2="${nby}" stroke="var(--ink)" stroke-width="1.4"/>
+        <text x="${nbx}" y="${nby-6}">${nScaleKm>=1?nScaleKm+' km':Math.round(nScaleKm*1000)+' m'}</text>
+      </g>`);
+      insetSvg = insetParts.join("");
+    }
+
+    // draw the far pins now, then the inset last so it always sits on top
+    farScreen.forEach((p,idx)=>{ svgParts.push(drawPin(p, nearCount+idx, p.x, p.y, 11.5, 11)); });
+    if(insetSvg) svgParts.push(insetSvg);
+
+    // off-map arrows (outliers far outside the cluster, e.g. Edem in Paleo Faliro)
+    offRange.forEach(p=>{
+      const pr = project(p.lat,p.lon,hotel.lat,hotel.lon);
+      const angle = Math.atan2(pr.east, pr.north);
+      const edge = drawSize/2 - 14;
+      const ax = cx + Math.sin(angle)*edge, ay = cy - Math.cos(angle)*edge;
+      const dirLabel = compass(angle*180/Math.PI);
+      svgParts.push(`<g>
+        <line x1="${cx}" y1="${cy}" x2="${ax}" y2="${ay}" stroke="var(--flag)" stroke-width="1.4" stroke-dasharray="4,3" opacity=".7"/>
+        <g transform="translate(${ax},${ay}) rotate(${angle*180/Math.PI})">
+          <path d="M0,-9 L7,7 L0,3.5 L-7,7 Z" fill="var(--flag)"/>
+        </g>
+        <text x="${ax}" y="${ay + (Math.cos(angle)>=0? -14: 22)}" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" font-weight="600" fill="var(--flag)">${fmtDist(pr.dist).n}${fmtDist(pr.dist).u} ${dirLabel}</text>
+      </g>`);
+    });
+
+    svg.innerHTML = svgParts.join("");
+    return { usedInset: useInset };
+  }
+
+  function buildList(listId, hotel, places){
+    const list = document.getElementById(listId);
+    const withDist = places.map(p=>Object.assign({}, p, {d: project(p.lat,p.lon,hotel.lat,hotel.lon).dist}));
+    withDist.sort((a,b)=>a.d-b.d);
+    list.innerHTML = withDist.map((p,i)=>{
+      const f = fmtDist(p.d);
+      const approx = p.conf!=="high" ? `<span class="approx">${p.conf==='low'?'unconfirmed':'approximate'}</span>` : "";
+      const offNote = p.offMap ? ` · off this map, see arrow` : "";
+      return `<div class="card" data-id="${p.id}">
+        <div class="badge">${i+1}</div>
+        <div class="body">
+          <h3>${p.name}</h3>
+          <div class="meta">${p.village}${approx}</div>
+          <p class="desc">${p.desc}</p>
+        </div>
+        <div class="side">
+          <div class="dist">${f.n}<small> ${f.u}</small></div>
+          <div class="linkrow">
+            <a class="linkbtn" href="${p.url}" target="_blank" rel="noopener">Website</a>
+            <a class="linkbtn primary" href="${mapsUrl(p.lat,p.lon)}" target="_blank" rel="noopener">Directions</a>
+          </div>
+        </div>
+      </div>`;
+    }).join("");
+  }
+
+  function wireHover(mapId, listId){
+    const svg = document.getElementById(mapId), list = document.getElementById(listId);
+    svg.querySelectorAll(".pin").forEach(pin=>{
+      pin.addEventListener("mouseenter", ()=>{ const c=list.querySelector(`.card[data-id="${pin.dataset.id}"]`); if(c) c.classList.add("hover"); });
+      pin.addEventListener("mouseleave", ()=>{ const c=list.querySelector(`.card[data-id="${pin.dataset.id}"]`); if(c) c.classList.remove("hover"); });
+    });
+  }
+
+  Object.keys(ISLANDS).forEach(key=>{
+    const isl = ISLANDS[key];
+    isl.places.forEach((p,i)=>p.id = key+"-"+i);
+    const res = buildMap("map-"+key, isl.hotel, isl.places);
+    buildList("list-"+key, isl.hotel, isl.places);
+    wireHover("map-"+key, "list-"+key);
+    const note = document.getElementById("inset-note-"+key);
+    if(note && res && res.usedInset){
+      note.textContent = " The dashed circle marks restaurants close enough to your hotel to overlap here — see the zoomed detail panel.";
+    }
+  });
+
+  // Paros special card
+  (function(){
+    const sp = ISLANDS.paros.special;
+    const d = project(sp.lat,sp.lon,ISLANDS.paros.hotel.lat,ISLANDS.paros.hotel.lon).dist;
+    const f = fmtDist(d);
+    document.getElementById("special-paros").innerHTML = `
+      <span class="flagtag">SIDE TRIP · DIFFERENT ISLAND</span>
+      <h3>${sp.name} — ${sp.place}</h3>
+      <p>${sp.desc}</p>
+      <div class="dist">≈ ${f.n} ${f.u} from your hotel by road + ferry (not on the map above)</div>
+      <div class="linkrow">
+        <a class="linkbtn" href="${sp.url}" target="_blank" rel="noopener">Website</a>
+        <a class="linkbtn primary" href="${mapsUrl(sp.lat,sp.lon)}" target="_blank" rel="noopener">Directions</a>
+      </div>`;
+  })();
+
+  document.getElementById("athens-crossref").textContent = "Note: the 6th place on your Athens list, “Koutsou & Co,” is actually a seasonal Antiparos spot — see the Paros tab.";
+
+  // tabs
+  const tabs = document.querySelectorAll(".tab");
+  tabs.forEach(tab=>{
+    function activate(){
+      tabs.forEach(t=>t.setAttribute("aria-selected", t===tab ? "true":"false"));
+      document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
+      document.getElementById("panel-"+tab.dataset.island).classList.add("active");
+    }
+    tab.addEventListener("click", activate);
+    tab.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); activate(); } });
+  });
+})();
+</script>
+
+</body>
+</html>
